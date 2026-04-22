@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>电视频道列表（4列网格 + PotPlayer）</title>
+  <style>
+    :root{--gap:14px;--card-bg:#0f172a;--card-front:#fff;--muted:#94a3b8}
+    html,body{height:100%;margin:0;font-family:Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{background:#0b1220;color:var(--card-front);display:flex;align-items:flex-start;justify-content:center;padding:28px}
+    .wrap{width:100%;max-width:1200px}
+    header{margin-bottom:18px}
+    h1{font-size:20px;margin:0 0 6px}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--gap)}
+    @media (max-width:1000px){.grid{grid-template-columns:repeat(3,1fr)}}
+    @media (max-width:720px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:420px){.grid{grid-template-columns:repeat(1,1fr)}}
+
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+    .card:hover{transform:translateY(-6px);box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+    .thumb{width:100%;aspect-ratio:16/9;display:grid;place-items:center;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.02)}
+    .thumb img{width:100%;height:100%;object-fit:contain}
+    .fallback{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:var(--muted);padding:10px}
+    .title{font-size:13px;text-align:center;word-break:break-word}
+    .meta{font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>频道列表 — 4 列网格 + PotPlayer 播放</h1>
+      <p class="lead">点击卡片通过 PotPlayer 播放直播。图标从局域网 HTTP 地址加载。</p>
+    </header>
+
+    <main>
+      <div id="grid" class="grid" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <script>
+    const channels = [
+      {tvg: "CCTV1", group: "央视频道", title: "CCTV-1 综合", url: "https://httop.top/ysp-cctv1"},
+      {tvg: "CCTV2", group: "央视频道", title: "CCTV-2 财经", url: "https://httop.top/ysp-cctv2"},
+      {tvg: "CCTV3", group: "央视频道", title: "CCTV-3 综艺", url: "https://httop.top/ysp-cctv3"},
+      {tvg: "CCTV4", group: "央视频道", title: "CCTV-4 中文国际", url: "https://httop.top/ysp-cctv4"},
+      {tvg: "CCTV5", group: "央视频道", title: "CCTV-5 体育", url: "https://httop.top/ysp-cctv5"},
+      {tvg: "CCTV5+", group: "央视频道", title: "CCTV-5+ 体育赛事", url: "https://httop.top/ysp-cctv5+"},
+      {tvg: "CCTV6", group: "央视频道", title: "CCTV-6 电影", url: "https://httop.top/ysp-cctv6"},
+      {tvg: "CCTV7", group: "央视频道", title: "CCTV-7 国防军事", url: "https://httop.top/ysp-cctv7"},
+      {tvg: "CCTV8", group: "央视频道", title: "CCTV-8 电视剧", url: "https://httop.top/ysp-cctv8"},
+      {tvg: "CCTV9", group: "央视频道", title: "CCTV-9 纪录", url: "https://httop.top/ysp-cctv9"},
+      {tvg: "CCTV10", group: "央视频道", title: "CCTV-10 科教", url: "https://httop.top/ysp-cctv10"},
+      {tvg: "CCTV11", group: "央视频道", title: "CCTV-11 戏曲", url: "https://httop.top/ysp-cctv11"},
+      {tvg: "CCTV12", group: "央视频道", title: "CCTV-12 社会与法", url: "https://httop.top/ysp-cctv12"},
+      {tvg: "CCTV13", group: "央视频道", title: "CCTV-13 新闻", url: "https://httop.top/ysp-cctv13"},
+      {tvg: "CCTV16", group: "央视频道", title: "CCTV-16 少儿", url: "https://httop.top/ysp-cctv14"},
+      {tvg: "CCTV15", group: "央视频道", title: "CCTV-15 音乐", url: "https://httop.top/ysp-cctv15"},
+      {tvg: "CCTV16", group: "央视频道", title: "CCTV-16 奥林匹克", url: "https://httop.top/ysp-cctv16"},
+      {tvg: "CCTV16(4K)", group: "央视频道", title: "CCTV-16(4K) 奥林匹克", url: "https://httop.top/ysp-cctv16-4k"},
+      {tvg: "CCTV17", group: "央视频道", title: "CCTV-17 农业农村", url: "https://httop.top/ysp-cctv17"},
+      {tvg: "CCTV4K", group: "央视频道", title: "CCTV4K 高清", url: "https://httop.top/ysp-cctv4k"},
+      {tvg: "CCTV8K", group: "央视频道", title: "CCTV8K 超清", url: "https://httop.top/ysp-cctv8k"},
+      {tvg: "CGTN", group: "央视频道", title: "CGTN", url: "https://httop.top/ysp-cgtn"},
+      {tvg: "CGTN法语", group: "央视频道", title: "CGTN法语", url: "https://httop.top/ysp-cgtn法语"},
+      {tvg: "CGTN俄语", group: "央视频道", title: "CGTN俄语", url: "https://httop.top/ysp-cgtn俄语"},
+      {tvg: "CGTN阿语", group: "央视频道", title: "CGTN阿拉伯语", url: "https://httop.top/ysp-cgtn阿语"},
+      {tvg: "CGTN西语", group: "央视频道", title: "CGTN西班牙语", url: "https://httop.top/ysp-cgtn西语"},
+      {tvg: "CGTN纪录", group: "央视频道", title: "CGTN外语纪录", url: "https://httop.top/ysp-cgtn纪录"},
+      {tvg: "北京卫视", group: "卫视频道", title: "北京卫视", url: "https://httop.top/ysp-北京卫视"},
+      {tvg: "东方卫视", group: "卫视频道", title: "东方卫视", url: "https://httop.top/ysp-东方卫视"},
+      {tvg: "江苏卫视", group: "卫视频道", title: "江苏卫视", url: "https://httop.top/ysp-江苏卫视"},
+      {tvg: "浙江卫视", group: "卫视频道", title: "浙江卫视", url: "https://httop.top/ysp-浙江卫视"},
+      {tvg: "湖南卫视", group: "卫视频道", title: "湖南卫视", url: "https://httop.top/ysp-湖南卫视"},
+      {tvg: "湖北卫视", group: "卫视频道", title: "湖北卫视", url: "https://httop.top/ysp-湖北卫视"},
+      {tvg: "广东卫视", group: "卫视频道", title: "广东卫视", url: "https://httop.top/ysp-广东卫视"},
+      {tvg: "广西卫视", group: "卫视频道", title: "广西卫视", url: "https://httop.top/ysp-广西卫视"},
+      {tvg: "黑龙江卫视", group: "卫视频道", title: "黑龙江卫视", url: "https://httop.top/ysp-黑龙江卫视"},
+      {tvg: "海南卫视", group: "卫视频道", title: "海南卫视", url: "https://httop.top/ysp-海南卫视"},
+      {tvg: "重庆卫视", group: "卫视频道", title: "重庆卫视", url: "https://httop.top/ysp-重庆卫视"},
+      {tvg: "深圳卫视", group: "卫视频道", title: "深圳卫视", url: "https://httop.top/ysp-深圳卫视"},
+      {tvg: "四川卫视", group: "卫视频道", title: "四川卫视", url: "https://httop.top/ysp-四川卫视"},
+      {tvg: "河南卫视", group: "卫视频道", title: "河南卫视", url: "https://httop.top/ysp-河南卫视"},
+      {tvg: "东南卫视", group: "卫视频道", title: "东南卫视", url: "https://httop.top/ysp-东南卫视"},
+      {tvg: "贵州卫视", group: "卫视频道", title: "贵州卫视", url: "https://httop.top/ysp-贵州卫视"},
+      {tvg: "江西卫视", group: "卫视频道", title: "江西卫视", url: "https://httop.top/ysp-江西卫视"},
+      {tvg: "辽宁卫视", group: "卫视频道", title: "辽宁卫视", url: "https://httop.top/ysp-辽宁卫视"},
+      {tvg: "安徽卫视", group: "卫视频道", title: "安徽卫视", url: "https://httop.top/ysp-安徽卫视"},
+      {tvg: "河北卫视", group: "卫视频道", title: "河北卫视", url: "https://httop.top/ysp-河北卫视"},
+      {tvg: "山东卫视", group: "卫视频道", title: "山东卫视", url: "https://httop.top/ysp-山东卫视"},
+      {tvg: "天津卫视", group: "卫视频道", title: "天津卫视", url: "https://httop.top/ysp-天津卫视"},
+      {tvg: "吉林卫视", group: "卫视频道", title: "吉林卫视", url: "https://httop.top/ysp-吉林卫视"},
+      {tvg: "陕西卫视", group: "卫视频道", title: "陕西卫视", url: "https://httop.top/ysp-陕西卫视"},
+      {tvg: "甘肃卫视", group: "卫视频道", title: "甘肃卫视", url: "https://httop.top/ysp-甘肃卫视"},
+      {tvg: "宁夏卫视", group: "卫视频道", title: "宁夏卫视", url: "https://httop.top/ysp-宁夏卫视"},
+      {tvg: "内蒙古卫视", group: "卫视频道", title: "内蒙古卫视", url: "https://httop.top/ysp-内蒙古卫视"},
+      {tvg: "云南卫视", group: "卫视频道", title: "云南卫视", url: "https://httop.top/ysp-云南卫视"},
+      {tvg: "山西卫视", group: "卫视频道", title: "山西卫视", url: "https://httop.top/ysp-山西卫视"},
+      {tvg: "青海卫视", group: "卫视频道", title: "青海卫视", url: "https://httop.top/ysp-青海卫视"},
+      {tvg: "新疆卫视", group: "卫视频道", title: "新疆卫视", url: "https://httop.top/ysp-新疆卫视"},
+      {tvg: "兵团卫视", group: "卫视频道", title: "兵团卫视", url: "https://httop.top/ysp-兵团卫视"}
+    ];
+
+    const grid = document.getElementById('grid');
+
+    function makeInitials(name){
+      const words = name.replace(/[\(\)\d]/g,'').split(/\s+|[-–—]/).filter(Boolean);
+      if(/[一-龥]/.test(name)){
+        return name.slice(0,2);
+      }
+      return (words[0]||name).slice(0,3).toUpperCase();
+    }
+
+    function mkCard(ch){
+      const a = document.createElement('a');
+      a.href = `potplayer://${ch.url}`;
+      a.target = '_blank';
+      a.className = 'card';
+
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb';
+
+      const img = document.createElement('img');
+      img.src = `http://192.168.0.109:5623/docker/${ch.tvg}.png`;
+      img.alt = ch.title;
+      img.loading = 'lazy';
+
+      img.onerror = function(){
+        img.remove();
+        const fb = document.createElement('div');
+        fb.className = 'fallback';
+        fb.textContent = makeInitials(ch.tvg);
+        thumb.appendChild(fb);
+      };
+
+      thumb.appendChild(img);
+      a.appendChild(thumb);
+
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.textContent = ch.title;
+      a.appendChild(title);
+
+      return a;
+    }
+
+    channels.forEach(ch=>{
+      grid.appendChild(mkCard(ch));
+    });
+  </script>
+</body>
+</html>
