@@ -1,20 +1,23 @@
 import os
 import csv
-import sys
 import time
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# 配置路径
 CSV_PATH = "20260826.csv"
 TXT_DIR = "txt"
+
+# 超时设置（秒）
 TIMEOUT = 2.5
 
 def log(msg):
-    """带时间戳的日志输出函数，并强制刷新缓冲区，实现实时打印"""
+    """带时间戳的日志输出函数，并强制开启 flush=True 实现实时打印"""
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    # 关键点：加上 flush=True，让日志瞬间输出到终端/Action 页面，不卡缓存
     print(f"[{current_time}] {msg}", flush=True)
+
 def get_ips_from_csv(csv_path):
+    """从 FOFA 的 CSV 文件中提取 IP 地址"""
     log(f"正在读取 CSV 文件: {csv_path}")
     ips = set()
     if not os.path.exists(csv_path):
@@ -24,6 +27,7 @@ def get_ips_from_csv(csv_path):
     with open(csv_path, mode="r", encoding="utf-8", errors="ignore") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            # 兼容不同表头名称，优先取 ip 或 host
             ip = row.get("ip") or row.get("host", "").split(":")[0]
             if ip:
                 ips.add(ip.strip())
@@ -31,6 +35,7 @@ def get_ips_from_csv(csv_path):
     return list(ips)
 
 def check_ip_alive(ip):
+    """测试 IP 的 85 端口是否存活（请求广告图片特征）"""
     url = f"http://{ip}:85/iptv_ad01.jpg"
     try:
         response = requests.get(url, timeout=TIMEOUT)
@@ -41,10 +46,11 @@ def check_ip_alive(ip):
     return None
 
 def extract_template_paths():
+    """从现有 txt 模板中提取频道的路径规律"""
     log("正在从已有 txt 模板中提取频道路径结构...")
     templates = set()
     if not os.path.exists(TXT_DIR):
-        log(f"⚠️ 提示：本地未发现 {TXT_DIR} 目录，将使用默认路径规则兜底。")
+        log(f"⚠️ 提示：本地未发现 {TXT_DIR} 目录。")
         return list(templates)
         
     for filename in os.listdir(TXT_DIR):
@@ -57,12 +63,14 @@ def extract_template_paths():
                         if len(parts) >= 2:
                             url = parts[1].strip()
                             if ":85" in url:
+                                # 截取域名之后的部分作为模板路径
                                 path = url.split(":85")[1]
                                 templates.add(path)
     log(f"✅ 提取完毕，共获得 {len(templates)} 条唯一的频道路径模板。")
     return list(templates)
 
 def test_and_save_sources(live_ips, templates):
+    """对存活的 IP 结合模板进行批量频道探测，并实时写入文件"""
     if not live_ips or not templates:
         log("⚠️ 存活 IP 或模板为空，终止爆破探测阶段。")
         return
@@ -72,7 +80,6 @@ def test_and_save_sources(live_ips, templates):
 
     log(f"开始对 {len(live_ips)} 个存活 IP 进行全量模板爆破探测...")
     for idx, ip in enumerate(live_ips, 1):
-        # 修复点：去掉了错误的 fn= 关键字
         log(f"--- [{idx}/{len(live_ips)}] 正在检测 IP: {ip} ---")
         valid_channels = []
         
@@ -97,7 +104,6 @@ def test_and_save_sources(live_ips, templates):
                 f.write(f"自动扫描新源_{ip},#genre#\n")
                 for c_idx, url in enumerate(valid_channels, 1):
                     f.write(f"频道_{c_idx},{url}\n")
-            # 修复点：去掉了错误的 fn= 关键字
             log(f"💾 已成功写入文件: {output_file}")
         else:
             log(f"em... IP {ip} 未扫描到可用频道。")
@@ -118,7 +124,7 @@ def main():
         for future in as_completed(futures):
             res_ip = future.result()
             if res_ip:
-                print(f"  [√] 发现存活目标 --> {res_ip}")
+                print(f"  [√] 发现存活目标 --> {res_ip}", flush=True)
                 live_ips.append(res_ip)
 
     log(f"👉 阶段 1 完成：在 {len(ips)} 个 IP 中，共筛选出 {len(live_ips)} 个存活主机。")
