@@ -1,5 +1,6 @@
 import os
 import csv
+import sys
 import time
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -9,10 +10,10 @@ TXT_DIR = "txt"
 TIMEOUT = 2.5
 
 def log(msg):
-    """带时间戳的日志输出函数，方便直观查看运行节奏"""
+    """带时间戳的日志输出函数，并强制刷新缓冲区，实现实时打印"""
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print(f"[{current_time}] {msg}")
-
+    # 关键点：加上 flush=True，让日志瞬间输出到终端/Action 页面，不卡缓存
+    print(f"[{current_time}] {msg}", flush=True)
 def get_ips_from_csv(csv_path):
     log(f"正在读取 CSV 文件: {csv_path}")
     ips = set()
