@@ -9,7 +9,9 @@ CSV_PATH = "20260826.csv"
 TXT_DIR = "txt"
 
 # 超时设置（秒）
-TIMEOUT = 2.5
+TIMEOUT = 2.0
+# 每个 IP 内部并发测试的线程数（可根据网络情况调大或调小）
+INNER_WORKERS = 30
 
 def log(msg):
     """带时间戳的日志输出函数，并强制开启 flush=True 实现实时打印"""
@@ -27,7 +29,6 @@ def get_ips_from_csv(csv_path):
     with open(csv_path, mode="r", encoding="utf-8", errors="ignore") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            # 兼容不同表头名称，优先取 ip 或 host
             ip = row.get("ip") or row.get("host", "").split(":")[0]
             if ip:
                 ips.add(ip.strip())
@@ -63,14 +64,27 @@ def extract_template_paths():
                         if len(parts) >= 2:
                             url = parts[1].strip()
                             if ":85" in url:
-                                # 截取域名之后的部分作为模板路径
                                 path = url.split(":85")[1]
                                 templates.add(path)
     log(f"✅ 提取完毕，共获得 {len(templates)} 条唯一的频道路径模板。")
     return list(templates)
 
+def test_single_path(ip, template_path):
+    """测试单个频道路径是否可用"""
+    test_url = f"http://{ip}:85{template_path}"
+    try:
+        res = requests.head(test_url, timeout=TIMEOUT)
+        if res.status_code != 200:
+            res = requests.get(test_url, timeout=TIMEOUT)
+        
+        if res.status_code == 200:
+            return test_url
+    except Exception:
+        pass
+    return None
+
 def test_and_save_sources(live_ips, templates):
-    """对存活的 IP 结合模板进行批量频道探测，并实时写入文件"""
+    """对存活的 IP 结合模板进行多线程并发频道探测，并实时写入文件"""
     if not live_ips or not templates:
         log("⚠️ 存活 IP 或模板为空，终止爆破探测阶段。")
         return
@@ -78,22 +92,18 @@ def test_and_save_sources(live_ips, templates):
     os.makedirs(TXT_DIR, exist_ok=True)
     total_found_sources = 0
 
-    log(f"开始对 {len(live_ips)} 个存活 IP 进行全量模板爆破探测...")
+    log(f"开始对 {len(live_ips)} 个存活 IP 进行多线程模板爆破探测...")
     for idx, ip in enumerate(live_ips, 1):
-        log(f"--- [{idx}/{len(live_ips)}] 正在检测 IP: {ip} ---")
+        log(f"--- [{idx}/{len(live_ips)}] 正在多线程检测 IP: {ip} ---")
         valid_channels = []
         
-        for template_path in templates:
-            test_url = f"http://{ip}:85{template_path}"
-            try:
-                res = requests.head(test_url, timeout=TIMEOUT)
-                if res.status_code != 200:
-                    res = requests.get(test_url, timeout=TIMEOUT)
-                
-                if res.status_code == 200:
-                    valid_channels.append(test_url)
-            except Exception:
-                pass
+        # 使用线程池并发测试当前 IP 的所有模板路径
+        with ThreadPoolExecutor(max_workers=INNER_WORKERS) as executor:
+            futures = {executor.submit(test_single_path, ip, path): path for path in templates}
+            for future in as_completed(futures):
+                result_url = future.result()
+                if result_url:
+                    valid_channels.append(result_url)
         
         if valid_channels:
             log(f"🎉 【命中】IP {ip} 发现有效频道：{len(valid_channels)} 个！")
@@ -102,7 +112,7 @@ def test_and_save_sources(live_ips, templates):
             
             with open(output_file, "w", encoding="utf-8") as f:
                 f.write(f"自动扫描新源_{ip},#genre#\n")
-                for c_idx, url in enumerate(valid_channels, 1):
+                for c_idx, url in enumerate(sorted(valid_channels), 1):
                     f.write(f"频道_{c_idx},{url}\n")
             log(f"💾 已成功写入文件: {output_file}")
         else:
@@ -132,7 +142,7 @@ def main():
     log("[阶段 2/3] 正在加载已有频道模板...")
     templates = extract_template_paths()
 
-    log("[阶段 3/3] 开始对存活 IP 逐个进行频道匹配与校验...")
+    log("[阶段 3/3] 开始对存活 IP 逐个进行多线程频道匹配与校验...")
     test_and_save_sources(live_ips, templates)
     
     log("=== 全部任务圆满完成！ ===")
