@@ -71,7 +71,8 @@ def test_and_save_sources(live_ips, templates):
 
     log(f"开始对 {len(live_ips)} 个存活 IP 进行全量模板爆破探测...")
     for idx, ip in enumerate(live_ips, 1):
-        log(fn=f"--- [{idx}/{len(live_ips)}] 正在检测 IP: {ip} ---")
+        # 修复点：去掉了错误的 fn= 关键字
+        log(f"--- [{idx}/{len(live_ips)}] 正在检测 IP: {ip} ---")
         valid_channels = []
         
         for template_path in templates:
@@ -95,7 +96,8 @@ def test_and_save_sources(live_ips, templates):
                 f.write(f"自动扫描新源_{ip},#genre#\n")
                 for c_idx, url in enumerate(valid_channels, 1):
                     f.write(f"频道_{c_idx},{url}\n")
-            log(fn=f"💾 已成功写入文件: {output_file}")
+            # 修复点：去掉了错误的 fn= 关键字
+            log(f"💾 已成功写入文件: {output_file}")
         else:
             log(f"em... IP {ip} 未扫描到可用频道。")
 
