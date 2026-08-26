@@ -30,9 +30,9 @@ jobs:
       - name: 4. 执行核心扫描与验源脚本
         run: |
           echo "================ 启动 Python 脚本 ================"
-          python scan_new_sources.py
+          # 使用 python -u 可以强制 Python 标准输出实时打印，不走缓冲区
+          python -u scan_new_sources.py
           echo "================ 脚本运行结束 ================"
-
       - name: 5. 检查并提交生成的新源文件
         run: |
           git config --global user.name "github-actions[bot]"
