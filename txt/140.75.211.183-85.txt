@@ -1,0 +1,13 @@
+自动扫描新源_140.75.211.183,#genre#
+频道_1,http://140.75.211.183:85/tsfile/live/0001_1.m3u8?key=txiptv&playlive=1&authid=0
+频道_2,http://140.75.211.183:85/tsfile/live/1000_1.m3u8?key=txiptv&playlive=1&authid=0
+频道_3,http://140.75.211.183:85/tsfile/live/1001_1.m3u8?key=txiptv&playlive=0&authid=0
+频道_4,http://140.75.211.183:85/tsfile/live/1001_1.m3u8?key=txiptv&playlive=1&authid=0
+频道_5,http://140.75.211.183:85/tsfile/live/1002_1.m3u8?key=txiptv&playlive=0&authid=0
+频道_6,http://140.75.211.183:85/tsfile/live/1002_1.m3u8?key=txiptv&playlive=1&authid=0
+频道_7,http://140.75.211.183:85/tsfile/live/1003_1.m3u8?key=txiptv&playlive=1&authid=0
+频道_8,http://140.75.211.183:85/tsfile/live/1004_1.m3u8?key=txiptv&playlive=1&authid=0
+频道_9,http://140.75.211.183:85/tsfile/live/1006_1.m3u8?key=txiptv&playlive=0&authid=0
+频道_10,http://140.75.211.183:85/tsfile/live/1006_1.m3u8?key=txiptv&playlive=1&authid=0
+频道_11,http://140.75.211.183:85/tsfile/live/1008_1.m3u8?key=txiptv&playlive=1&authid=0
+频道_12,http://140.75.211.183:85/tsfile/live/1009_1.m3u8?key=txiptv&playlive=1&authid=0
