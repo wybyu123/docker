@@ -11,7 +11,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 从 Cloudflare 传递过来的自定义参数中获取镜像名，如果没有传则默认用 wjecee/tv-go
       - name: Get Image Name
         id: image-info
         run: |
@@ -20,37 +19,37 @@ jobs:
             IMAGE_NAME="wjecee/tv-go"
           fi
           echo "target_image=$IMAGE_NAME" >> $GITHUB_OUTPUT
-          echo "将要同步的镜像为: $IMAGE_NAME"
+          
+          # 自动剥离标签获取纯仓库名
+          IMAGE_NO_TAG=$(echo "$IMAGE_NAME" | awk -F':' '{print $1}')
+          REPO_NAME=$(echo "$IMAGE_NO_TAG" | awk -F'/' '{print $NF}')
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
+          
+          echo "目标镜像: $IMAGE_NAME, 仓库名: $REPO_NAME"
 
-      # 1. 登录到 Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 2. 动态拉取镜像
       - name: Pull original image
         run: docker pull ${{ steps.image-info.outputs.target_image }}
 
-      # 3. 给镜像重新打标签 (自动提取镜像名作为标签名的一部分，或者统一用 latest)
+      # 使用 Docker 官方 inspect 获取绝对正确的完整镜像 ID 或直接用全称打标签
       - name: Tag image
         run: |
-          FULL_IMAGE="${{ steps.image-info.outputs.target_image }}"
+          SRC_IMAGE="${{ steps.image-info.outputs.target_image }}"
+          REPO_NAME="${{ steps.image-info.outputs.repo_name }}"
+          TARGET_IMAGE="${{ secrets.DOCKER_USERNAME }}/$REPO_NAME:latest"
           
-          # 必须先用 awk 切掉冒号及后面的标签
-          IMAGE_NO_TAG=$(echo "$FULL_IMAGE" | awk -F':' '{print $1}')
-          
-          # 再取斜杠后面的纯仓库名
-          REPO_NAME=$(echo "$IMAGE_NO_TAG" | awk -F'/' '{print $NF}')
-          
-          echo "处理后的纯仓库名为: $REPO_NAME"
-          
-          docker tag $FULL_IMAGE ${{ secrets.DOCKER_USERNAME }}/$REPO_NAME:latest
+          echo "正在给 $SRC_IMAGE 打标签为 $TARGET_IMAGE"
+          docker tag $SRC_IMAGE $TARGET_IMAGE
 
-      # 4. 推送到你的 Docker Hub 镜像库
       - name: Push image to Docker Hub
         run: |
-          FULL_IMAGE="${{ steps.image-info.outputs.target_image }}"
-          REPO_NAME=$(echo "$FULL_IMAGE" | awk -F'/' '{print $NF}')
-          docker push ${{ secrets.DOCKER_USERNAME }}/$REPO_NAME:latest
+          REPO_NAME="${{ steps.image-info.outputs.repo_name }}"
+          TARGET_IMAGE="${{ secrets.DOCKER_USERNAME }}/$REPO_NAME:latest"
+          
+          echo "正在推送 $TARGET_IMAGE"
+          docker push $TARGET_IMAGE
