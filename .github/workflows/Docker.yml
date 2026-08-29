@@ -1,7 +1,8 @@
 name: Sync IPTV Image to Docker Hub
 
 on:
-  workflow_dispatch: # 支持在网页后台手动点击按钮触发运行
+  repository_dispatch:
+    types: [sync-image] # 监听自定义的触发事件
 
 jobs:
   push-to-dockerhub:
@@ -10,6 +11,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 从 Cloudflare 传递过来的自定义参数中获取镜像名，如果没有传则默认用 wjecee/tv-go
+      - name: Get Image Name
+        id: image-info
+        run: |
+          IMAGE_NAME="${{ github.event.client_payload.image_name }}"
+          if [ -z "$IMAGE_NAME" ]; then
+            IMAGE_NAME="wjecee/tv-go"
+          fi
+          echo "target_image=$IMAGE_NAME" >> $GITHUB_OUTPUT
+          echo "将要同步的镜像为: $IMAGE_NAME"
+
       # 1. 登录到 Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -17,14 +29,23 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 2. 拉取原作者的镜像（请把下面 akiralereal/iptv:latest 换成你需要同步的原镜像）
+      # 2. 动态拉取镜像
       - name: Pull original image
-        run: docker pull wjecee/tv-go 
+        run: docker pull ${{ steps.image-info.outputs.target_image }}
 
-      # 3. 给镜像重新打标签，对准你的 Docker Hub 账号
+      # 3. 给镜像重新打标签 (自动提取镜像名作为标签名的一部分，或者统一用 latest)
       - name: Tag image
-        run: docker tag wjecee/tv-go  ${{ secrets.DOCKER_USERNAME }}/tv-go:latest
+        run: |
+          FULL_IMAGE="${{ steps.image-info.outputs.target_image }}"
+          # 提取纯镜像名（例如 wjecee/tv-go 提取出 tv-go，如果是library下的可以用 basename）
+          REPO_NAME=$(echo "$FULL_IMAGE" | awk -F'/' '{print $NF}')
+          echo "仓库名为: $REPO_NAME"
+          
+          docker tag $FULL_IMAGE ${{ secrets.DOCKER_USERNAME }}/$REPO_NAME:latest
 
       # 4. 推送到你的 Docker Hub 镜像库
       - name: Push image to Docker Hub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/tv-go:latest
+        run: |
+          FULL_IMAGE="${{ steps.image-info.outputs.target_image }}"
+          REPO_NAME=$(echo "$FULL_IMAGE" | awk -F'/' '{print $NF}')
+          docker push ${{ secrets.DOCKER_USERNAME }}/$REPO_NAME:latest
