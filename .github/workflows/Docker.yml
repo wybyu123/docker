@@ -37,9 +37,14 @@ jobs:
       - name: Tag image
         run: |
           FULL_IMAGE="${{ steps.image-info.outputs.target_image }}"
-          # 提取纯镜像名（例如 wjecee/tv-go 提取出 tv-go，如果是library下的可以用 basename）
-          REPO_NAME=$(echo "$FULL_IMAGE" | awk -F'/' '{print $NF}')
-          echo "仓库名为: $REPO_NAME"
+          
+          # 必须先用 awk 切掉冒号及后面的标签
+          IMAGE_NO_TAG=$(echo "$FULL_IMAGE" | awk -F':' '{print $1}')
+          
+          # 再取斜杠后面的纯仓库名
+          REPO_NAME=$(echo "$IMAGE_NO_TAG" | awk -F'/' '{print $NF}')
+          
+          echo "处理后的纯仓库名为: $REPO_NAME"
           
           docker tag $FULL_IMAGE ${{ secrets.DOCKER_USERNAME }}/$REPO_NAME:latest
 
