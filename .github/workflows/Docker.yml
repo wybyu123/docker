@@ -19,12 +19,12 @@ jobs:
 
       # 2. 拉取原作者的镜像（请把下面 akiralereal/iptv:latest 换成你需要同步的原镜像）
       - name: Pull original image
-        run: docker pull akiralereal/iptv 
+        run: docker pull wjecee/tv-go 
 
       # 3. 给镜像重新打标签，对准你的 Docker Hub 账号
       - name: Tag image
-        run: docker tag akiralereal/iptv  ${{ secrets.DOCKER_USERNAME }}/iptv:latest
+        run: docker tag wjecee/tv-go  ${{ secrets.DOCKER_USERNAME }}/iptv:latest
 
       # 4. 推送到你的 Docker Hub 镜像库
       - name: Push image to Docker Hub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/iptv:latest
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/tv-go:latest
